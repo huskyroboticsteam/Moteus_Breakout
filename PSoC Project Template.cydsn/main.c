@@ -19,6 +19,8 @@
 #include "CAN_Stuff.h"
 #include "FSM_Stuff.h"
 #include "HindsightCAN/CANLibrary.h"
+#include "moteus_protocol.h"
+#include "protocol_translator.h"
 
 // LED stuff
 volatile uint8_t CAN_time_LED = 0;
@@ -144,7 +146,7 @@ void DisplayErrorCode(uint8_t code) {
     
     sprintf(txData, "Error %X\r\n", code);
     Print(txData);
-
+    
     switch(code)
     {
         case ERROR_INVALID_TTC:
