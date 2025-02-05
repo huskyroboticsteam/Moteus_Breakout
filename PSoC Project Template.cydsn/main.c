@@ -9,7 +9,6 @@
  *
  * ========================================
 */
-
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -19,8 +18,8 @@
 #include "CAN_Stuff.h"
 #include "FSM_Stuff.h"
 #include "HindsightCAN/CANLibrary.h"
-#include "moteus_protocol.h"
-#include "protocol_translator.h"
+#include "Button_1.h"
+#include "Button_1_aliases.h"
 
 // LED stuff
 volatile uint8_t CAN_time_LED = 0;
@@ -47,7 +46,9 @@ CY_ISR(Period_Reset_Handler) {
 }
 
 CY_ISR(Button_1_Handler) {
-    LED_DBG_Write(!LED_DBG_Read());
+    LED_DBG1_Write(!LED_DBG1_Read());
+    LED_DBG2_Write(!LED_DBG2_Read());
+    // LED_DBG3_Write(!LED_DBG3_Read());
 }
 
 int main(void)
@@ -102,13 +103,13 @@ void Initialize(void) {
     sprintf(txData, "Dip Addr: %x \r\n", address);
     Print(txData);
     
-    LED_DBG_Write(0);
+    LED_DBG1_Write(0);
     
     InitCAN(0x4, (int)address);
     Timer_Period_Reset_Start();
-
-    isr_Button_1_StartEx(Button_1_Handler);
-    isr_Period_Reset_StartEx(Period_Reset_Handler);
+    
+    // isr_Button_1_StartEx(Button_1_Handler);
+    // isr_Period_Reset_StartEx(Period_Reset_Handler);
 }
 
 void DebugPrint(char input) {
