@@ -87,5 +87,4 @@ void PrintCanPacket(CANPacket packet){
     Print(txData);
 }
 
-
 /* [] END OF FILE */

@@ -29,5 +29,4 @@ int getSerialAddress();
 void DebugPrint(char input);
 void DisplayErrorCode(uint8_t code);
 
-
 /* [] END OF FILE */
