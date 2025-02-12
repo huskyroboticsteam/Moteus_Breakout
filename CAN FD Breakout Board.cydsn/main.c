@@ -18,12 +18,18 @@
 #include "CAN_Stuff.h"
 #include "FSM_Stuff.h"
 #include "HindsightCAN/CANLibrary.h"
-#include "Button_1.h"
-#include "Button_1_aliases.h"
+// #include "Button_1.h"
+// #include "Button_1_aliases.h"
 
 // LED stuff
 volatile uint8_t CAN_time_LED = 0;
 volatile uint8_t ERROR_time_LED = 0;
+volatile uint8_t DBG_1_LED = 0; // newly added
+volatile uint8_t DBG_2_LED = 0; // newly added
+volatile uint8_t DBG_3_LED = 0; // newly added
+volatile uint8_t CAN_FD_time_LED = 0; // newly added
+volatile uint8_t VMOT_LED = 0; // newly added
+
 
 // UART stuff
 char txData[TX_DATA_SIZE];
@@ -106,6 +112,7 @@ void Initialize(void) {
     LED_DBG1_Write(0);
     
     InitCAN(0x4, (int)address);
+    // InitCAN2(0x4, (int)address);
     Timer_Period_Reset_Start();
     
     // isr_Button_1_StartEx(Button_1_Handler);
