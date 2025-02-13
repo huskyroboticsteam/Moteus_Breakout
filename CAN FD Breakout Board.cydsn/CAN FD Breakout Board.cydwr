@@ -22,6 +22,10 @@
       <Data key="a75f9d05-828b-49f5-b615-b0e6c48bb53a" value="Clock_1" />
       <Data key="b561a610-e1ca-4f8c-9281-59a70030b09c/2dc2d7a8-ce2b-43c7-af4a-821c8cd73ccf" value="DBG_UART_SCBCLK" />
     </Group>
+    <Group key="Interrupt">
+      <Data key="2c366327-8ea9-4813-ab0d-a7ce473af76e/3a6c5259-9a34-42b7-9aeb-218a7f619daa" value="CAN_isr" />
+      <Data key="ba12592c-7ff4-4ffb-9123-45420286cdc2/3a6c5259-9a34-42b7-9aeb-218a7f619daa" value="CAN_2_isr" />
+    </Group>
     <Group key="Pin">
       <Data key="1e8842ba-71ab-4752-acd5-c7b9575c6400" value="DIP4" />
       <Data key="2a7b9377-17d7-4086-b420-5d26b01bb37d" value="SWCLK" />
@@ -3131,6 +3135,22 @@
       </Group>
       <Group key="1024">
         <Data key="LevelKey" value="0" />
+      </Group>
+    </Group>
+  </Group>
+  <Group key="Interrupt">
+    <Group key="2c366327-8ea9-4813-ab0d-a7ce473af76e/3a6c5259-9a34-42b7-9aeb-218a7f619daa">
+      <Group key="CortexM0">
+        <Data key="Assigned" value="True" />
+        <Data key="Priority" value="2" />
+        <Data key="Vector" value="-1" />
+      </Group>
+    </Group>
+    <Group key="ba12592c-7ff4-4ffb-9123-45420286cdc2/3a6c5259-9a34-42b7-9aeb-218a7f619daa">
+      <Group key="CortexM0">
+        <Data key="Assigned" value="True" />
+        <Data key="Priority" value="3" />
+        <Data key="Vector" value="-1" />
       </Group>
     </Group>
   </Group>

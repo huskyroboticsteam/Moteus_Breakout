@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h> // for memcpy
 #include "main.h"
 #include "cyapicallbacks.h"
 #include "CAN_Stuff.h"
@@ -24,12 +25,10 @@
 // LED stuff
 volatile uint8_t CAN_time_LED = 0;
 volatile uint8_t ERROR_time_LED = 0;
-volatile uint8_t DBG_1_LED = 0; // newly added
-volatile uint8_t DBG_2_LED = 0; // newly added
-volatile uint8_t DBG_3_LED = 0; // newly added
+volatile uint8_t DBG_1_time_LED = 0; // newly added
+volatile uint8_t DBG_2_time_LED = 0; // newly added
+volatile uint8_t DBG_3_time_LED = 0; // newly added
 volatile uint8_t CAN_FD_time_LED = 0; // newly added
-volatile uint8_t VMOT_LED = 0; // newly added
-
 
 // UART stuff
 char txData[TX_DATA_SIZE];
@@ -53,53 +52,9 @@ CY_ISR(Period_Reset_Handler) {
 
 CY_ISR(Button_1_Handler) {
     LED_DBG1_Write(!LED_DBG1_Read());
-    LED_DBG2_Write(!LED_DBG2_Read());
+    // LED_DBG2_Write(!LED_DBG2_Read());
     // LED_DBG3_Write(!LED_DBG3_Read());
 }
-
-/*int main(void)
-{ 
-    Initialize();
-    int err;
-    
-    for(;;)
-    {
-        err = 0;
-        switch(GetState()) {
-            case(UNINIT):
-                SetStateTo(CHECK_CAN);
-                break;
-            case(CHECK_CAN):
-                if (!PollAndReceiveCANPacket(&can_recieve)) {
-                    LED_CAN_Write(ON);
-                    CAN_time_LED = 0;
-                    err = ProcessCAN(&can_recieve, &can_send);
-                }
-                if (GetMode() == MODE1)
-                    SetStateTo(DO_MODE1);
-                else 
-                    SetStateTo(CHECK_CAN);
-                break;
-            case(DO_MODE1):
-                // mode 1 tasks
-                SetStateTo(CHECK_CAN);
-                break;
-            default:
-                err = ERROR_INVALID_STATE;
-                SetStateTo(UNINIT);
-                break;
-        }
-        
-        if (err) DisplayErrorCode(err);
-        
-        if (DBG_UART_SpiUartGetRxBufferSize()) {
-            DebugPrint(DBG_UART_UartGetByte());
-        }
-        
-        CyDelay(100);
-    }
-}
-*/
 
 int main(void)
 { 
@@ -142,7 +97,7 @@ int main(void)
                     SendCANPacket(&can_send);
                 }
                 
-                // (B) Poll Classical CAN (Jetson)
+                // (B) Poll Classical CAN (Jetson) 
                 if (!PollAndReceiveCANPacket(&can_recieve))
                 {
                     // We have a Classical CAN packet from Jetson
@@ -155,7 +110,7 @@ int main(void)
                     
                     // If you want to forward everything to Moteus:
                     can_send = can_recieve;
-                    // SendCAN2Packet(&can_send); implement this next time
+                    SendCAN2Packet(&can_send);
                 }
                 
                 // (C) Check if the local mode changed to MODE1
