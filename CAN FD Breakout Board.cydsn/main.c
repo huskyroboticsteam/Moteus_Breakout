@@ -22,6 +22,10 @@
 // #include "Button_1.h"
 // #include "Button_1_aliases.h"
 
+#define FD_MAX_PAYLOAD  64 // CAN_FD is 64 bytes (checked with Moteus fw)
+#define CAN_MAX_PAYLOAD  8
+#define CAN_ID_MASK      0x7FF  // 11-bit mask for our 11 bit address
+
 // LED stuff
 volatile uint8_t CAN_time_LED = 0;
 volatile uint8_t ERROR_time_LED = 0;
@@ -91,27 +95,29 @@ int main(void)
                     // If needed, handle FD->Classical data differences:
                     // e.g. truncate data if FD has >8 bytes, or re‐map ID
                     // For now, if DLC <=8, do a direct copy:
-                    can_send = can_recieve; 
+                    // can_send = can_recieve; 
+                    
+                    ConvertFDToCAN(&can_recieve, &can_send);
                     
                     // Send that packet out on the Classical CAN to Jetson
                     SendCANPacket(&can_send);
                 }
                 
-                // (B) Poll Classical CAN (Jetson) 
+                // (B) Poll Classical CAN (Jetson)
                 if (!PollAndReceiveCANPacket(&can_recieve))
                 {
                     // We have a Classical CAN packet from Jetson
                     LED_CAN_Write(ON);
                     CAN_time_LED = 0;
-                    
-                    // Optional: run your existing logic (like ESTOP check)
-                    // ProcessCAN can parse IDs, update modes, etc.
+
+                    // Optional: run your existing logic
                     err = ProcessCAN(&can_recieve, &can_send);
                     
-                    // If you want to forward everything to Moteus:
-                    can_send = can_recieve;
+                    // Forward it to Moteus (FD)
+                    ConvertCANToFD(&can_recieve, &can_send);
                     SendCAN2Packet(&can_send);
                 }
+
                 
                 // (C) Check if the local mode changed to MODE1
                 // or remain bridging in CHECK_CAN otherwise
@@ -164,7 +170,6 @@ int main(void)
     }
 }
 
-
 void Initialize(void) {
     CyGlobalIntEnable; /* Enable global interrupts. LED arrays need this first */
     
@@ -175,8 +180,12 @@ void Initialize(void) {
     Print(txData);
     
     LED_DBG1_Write(0);
-    
+   
     InitCAN(0x4, (int)address);
+    
+    CyDelay(100); // delay between the two 
+    
+    LED_DBG2_Write(0);
     InitCAN2(0x4, (int)address);
     
     Timer_Period_Reset_Start();
@@ -232,7 +241,56 @@ void DisplayErrorCode(uint8_t code) {
     }
 }
 
+
 // write methods that takes care of different address bytes between CAN_FD and CAN over here.
+// assuming that CAN_FD is 64 bytes with CAN is 8 bytes
+void ConvertCANToFD(CANPacket *packetCAN, CANPacket *packetFD)
+{
+    if (!packetCAN || !packetFD) return;
+    
+    // 1) ID Assignment
+    //    The 11‐bit ID from Classical CAN is placed in the lower bits.
+    //    If FD needs extended ID usage, you can set a flag or place
+    //    the 11 bits in some portion of a 29‐bit ID. This example just copies them directly.
+    packetFD->id = (packetCAN->id & CAN_ID_MASK);
+
+    // 2) DLC
+    //    Classical CAN is max 8. FD can handle 0..64, so we can copy directly.
+    packetFD->dlc = packetCAN->dlc;
+
+    // 3) Data
+    memcpy(packetFD->data, packetCAN->data, packetCAN->dlc);
+
+    // 4) Clear out the remainder (optional)
+    for (uint8_t i = packetCAN->dlc; i < FD_MAX_PAYLOAD; i++) {
+        packetFD->data[i] = 0;
+    }
+}
 
 
+void ConvertFDToCAN(CANPacket *packetFD, CANPacket *packetCAN)
+{
+    if (!packetFD || !packetCAN) return;
+
+    // 1) ID Remapping
+    //    Naive approach: just take the lower 11 bits of the FD ID
+    //    (If FD uses extended IDs, bits above 11 are lost here unless you store them elsewhere)
+    packetCAN->id = (packetFD->id & CAN_ID_MASK);
+
+    // 2) DLC Truncation
+    uint8_t truncatedDLC = packetFD->dlc;
+    if (truncatedDLC > CAN_MAX_PAYLOAD) {
+        truncatedDLC = CAN_MAX_PAYLOAD;
+        // Optionally log or store that data was truncated
+    }
+    packetCAN->dlc = truncatedDLC;
+
+    // 3) Copy the truncated bytes
+    memcpy(packetCAN->data, packetFD->data, truncatedDLC);
+
+    // 4) (Optional) Clear the remaining part of the CAN data array
+    for (uint8_t i = truncatedDLC; i < CAN_MAX_PAYLOAD; i++) {
+        packetCAN->data[i] = 0;
+    }
+}
 /* [] END OF FILE */
