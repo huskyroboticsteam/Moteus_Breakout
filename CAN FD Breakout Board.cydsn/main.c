@@ -232,4 +232,7 @@ void DisplayErrorCode(uint8_t code) {
     }
 }
 
+// write methods that takes care of different address bytes between CAN_FD and CAN over here.
+
+
 /* [] END OF FILE */
