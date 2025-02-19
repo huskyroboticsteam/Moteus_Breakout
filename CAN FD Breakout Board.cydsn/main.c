@@ -60,6 +60,30 @@ CY_ISR(Button_1_Handler) {
     // LED_DBG3_Write(!LED_DBG3_Read());
 }
 
+uint16_t getMoteusRegister(uint8_t canId) {
+    switch(canId) {
+        case 0x00: return 0x000; // Mode Set to kMode
+        case 0x03: return 0x01C; // Motor PWM & Direction to kCommandQCurrent
+        case 0x04: return 0x020; // Motor PID Position Target to kCommandPosition
+        case 0x05: return 0x030; // P Coefficient Set to kPositionKp
+        case 0x06: return 0x031; // I Coefficient Set to kPositionKi
+        case 0x07: return 0x032; // D Coefficient Set to kPositionKd
+        case 0x08: return 0x000; // Initialize with Mode to kMode (fallback)
+        case 0x09: return 0x05E; // Limit Switch Alert to kAux1GpioStatus
+        case 0x0A: return 0x050; // Encoder Pulse Per Joint Revolution Set to kEncoder0Position
+        case 0x0B: return 0x001; // Maximum Joint Revolutions Set to kPosition
+        case 0x0C: return 0x132; // Initialize Encoder to kRequireReindex
+        case 0x0D: return 0x025; // Max PWM for PID to kCommandPositionMaxTorque
+        case 0x0E: return 0x060; // PCA PWM to kAux1AnalogIn1
+        case 0x0F: return 0x060; // Pot Set Low to kAux1AnalogIn1
+        case 0x10: return 0x060; // Pot Set High to kAux1AnalogIn1
+        case 0x11: return 0x060; // PCA Servo to kAux1AnalogIn1
+        case 0x12: return 0x05C; // Set Limit Switch Encoder Bound to kAux1GpioCommand
+        case 0x13: return 0x05C; // Set Peripherals to kAux1GpioCommand
+        default:  return 0x000; // Default fallback to kMode
+    }
+}
+
 int main(void)
 { 
     Initialize();
@@ -256,7 +280,13 @@ void ConvertCANToFD(CANPacket *packetCAN, CANPacket *packetFD)
 
     // 2) DLC
     //    Classical CAN is max 8. FD can handle 0..64, so we can copy directly.
-    packetFD->dlc = packetCAN->dlc;
+    packetFD->dlc = packetCAN->dlc; // not just copying over the CAN_FD
+    
+    
+    // broadcast packet in CAN wiki 
+    // research more on the moteus CAN_FD protocols, address bits and etc.
+    // set speed packet, write out the list of useful moteus packet ids
+    // 
 
     // 3) Data
     memcpy(packetFD->data, packetCAN->data, packetCAN->dlc);
