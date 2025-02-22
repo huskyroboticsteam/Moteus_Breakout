@@ -63,6 +63,8 @@ CY_ISR(Button_1_Handler) {
 uint16_t getMoteusRegister(uint8_t canId) {
     switch(canId) {
         case 0x00: return 0x000; // Mode Set to kMode
+        case 0x01: return 0x000; // Mode Set to kMode
+        case 0x02: return 0x000; // Mode Set to kMode
         case 0x03: return 0x01C; // Motor PWM & Direction to kCommandQCurrent
         case 0x04: return 0x020; // Motor PID Position Target to kCommandPosition
         case 0x05: return 0x030; // P Coefficient Set to kPositionKp
@@ -99,11 +101,11 @@ uint8_t getCanId(uint16_t registerValue) {
         case 0x132: return 0x0C; // kRequireReindex to Initialize Encoder
         case 0x025: return 0x0D; // kCommandPositionMaxTorque to Max PWM for PID
         case 0x060: return 0x0E; // kAux1AnalogIn1 to PCA PWM
-        // case 0x060: return 0x0F; // kAux1AnalogIn1 to Pot Set Low
-        // case 0x060: return 0x10; // kAux1AnalogIn1+ to Pot Set High
-        // case 0x060: return 0x11; // kAux1AnalogIn1 to PCA Servo
+        case 0x061: return 0x0F; // kAux1AnalogIn2 to Pot Set Low
+        case 0x062: return 0x10; // kAux1AnalogIn3 to Pot Set High
+        case 0x063: return 0x11; // kAux1AnalogIn4 to PCA Servo
         case 0x05C: return 0x12; // kAux1GpioCommand to Set Limit Switch Encoder Bound
-        // case 0x05C: return 0x13; // kAux1GpioCommand to Set Peripherals
+        case 0x05D: return 0x13; // kAux1GpioCommand to Set Peripherals
         default:  return 0xFF; // Default fallback (invalid register)
     }
 }
@@ -132,45 +134,95 @@ int main(void)
             // ------------------------------
             case(CHECK_CAN):
             {
-                // (A) Poll CAN_2 (Moteus FD)
                 
-                // implement the PollANdReceiveCAN2Packet function next time
-                if (!PollAndReceiveCAN2Packet(&can_recieve))
+            // (A) Poll CAN_2 (Moteus FD)    
+            if (!PollAndReceiveCAN2Packet(&can_recieve))
+            {
+                LED_DBG2_Write(ON);
+                CAN_FD_time_LED = 0;
+                
+                // FD has subframe in data[0..7], parse it
+                uint8_t subFrameType = can_recieve.data[0];
+                if (subFrameType == 0x24) { // "reply int16"
+                    uint8_t numRegisters = can_recieve.data[1]; // naive parse
+                    // read the “start register varuint” from data[2..3]? you need actual varuint decode
+                    uint16_t regNum = ( (can_recieve.data[3] << 7) | (can_recieve.data[2] & 0x7F) );
+                    
+                    // Map that to a classical command ID
+                    uint8_t cmdID = getCanId(regNum);
+
+                    // The next 2 bytes might be the read data, data[4..5]
+                    // We'll store them in classical data[1..2]
+                    CANPacket outCAN;
+                    outCAN.id = 0x123;   // Some classical ID your system expects
+                    outCAN.dlc = 3;
+                    outCAN.data[0] = cmdID;           // your “command ID”
+                    outCAN.data[1] = can_recieve.data[4];
+                    outCAN.data[2] = can_recieve.data[5];
+
+                    // fill rest with 0 or ignore
+                    for (uint8_t i=3; i<8; i++){
+                        outCAN.data[i] = 0;
+                    }
+
+                    // Send on classical
+                    SendCANPacket(&outCAN);
+                }
+                else
                 {
-                    // We have a CAN FD packet from Moteus
-                    LED_DBG2_Write(ON);
-                    CAN_FD_time_LED = 0; 
-                    
-                    // If needed, handle FD->Classical data differences:
-                    // e.g. truncate data if FD has >8 bytes, or re‐map ID
-                    // For now, if DLC <=8, do a direct copy:
-                    // can_send = can_recieve; 
-                    
-                    // ConvertFDToCAN(&can_recieve, &can_send);
-                    
-                    // CAN_FD -> CAN, get CAN_FD packets
-                    
-                    uint8_t CAN_FD = getMoteusRegister(&can_send);
-                    
-                   
-                    // Send that packet out on the Classical CAN to Jetson
+                    // handle other subframe types or just do a naive forward
+                    ConvertFDToCAN(&can_recieve, &can_send);
                     SendCANPacket(&can_send);
                 }
+            }
+
                 
                 // (B) Poll Classical CAN (Jetson)
                 if (!PollAndReceiveCANPacket(&can_recieve))
                 {
-                    // We have a Classical CAN packet from Jetson
                     LED_CAN_Write(ON);
                     CAN_time_LED = 0;
-
-                    // Optional: run your existing logic
-                    err = ProcessCAN(&can_recieve, &can_send);
                     
-                    // Forward it to Moteus (FD)
-                    ConvertCANToFD(&can_recieve, &can_send);
-                    SendCAN2Packet(&can_send);
+                    // Our 8-bit “command ID”
+                    uint8_t cmdID = can_recieve.data[0];
+                    
+                    // Convert that to a Moteus register
+                    uint16_t regNum = getMoteusRegister(cmdID);
+                    
+                    // Now build a minimal Moteus “write int16” subframe, for example
+                    // 0x08 => “write int32” in Moteus? (See your subframe docs.)
+                    // 0x04 => “write int16”
+                    // We'll guess 0x04 means “write int16”, 1 register
+                    // For demonstration, store the rest of classical data in that register.
+
+                    uint8_t fdData[8];
+                    fdData[0] = 0x04;        // subframe type: write int16
+                    fdData[1] = 0x01;        // “number of registers” (varuint) – in your protocol, might be different
+                    fdData[2] = (uint8_t)(regNum & 0x7F); // “start register” (very naive—Moteus actually uses varuint here too!)
+                    fdData[3] = (uint8_t)((regNum >> 7) & 0x7F); // partial varuint approach or might need different logic
+
+                    // Then store 2 bytes as the “value”:
+                    // We'll copy from can_recieve.data[1..2] just for demonstration
+                    fdData[4] = can_recieve.data[1];
+                    fdData[5] = can_recieve.data[2];
+
+                    // The rest can be 0x50 (NOP) or zero, depending on Moteus doc
+                    fdData[6] = 0x50;
+                    fdData[7] = 0x50;
+
+                    // Now fill out the FD packet
+                    CANPacket fdPacket;
+                    fdPacket.id  = 0x8001;   // As Moteus doc suggests: bit15=1 => reply requested, lower bits => src/dest
+                    fdPacket.dlc = 8;
+                    memcpy(fdPacket.data, fdData, 8);
+
+                    // If you want to do 64 bytes or bigger, set dlc > 8
+                    // (But your bridging code says classical is only 8 bytes anyway)
+
+                    // Finally, send on FD
+                    SendCAN2Packet(&fdPacket);
                 }
+
 
                 
                 // (C) Check if the local mode changed to MODE1
