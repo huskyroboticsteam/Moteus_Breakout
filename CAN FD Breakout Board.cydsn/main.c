@@ -76,13 +76,38 @@ uint16_t getMoteusRegister(uint8_t canId) {
         case 0x0D: return 0x025; // Max PWM for PID to kCommandPositionMaxTorque
         case 0x0E: return 0x060; // PCA PWM to kAux1AnalogIn1
         case 0x0F: return 0x060; // Pot Set Low to kAux1AnalogIn1
-        case 0x10: return 0x060; // Pot Set High to kAux1AnalogIn1
+        case 0x10: return 0x060; // Pot Set High to kAux1AnalogIn1+
         case 0x11: return 0x060; // PCA Servo to kAux1AnalogIn1
         case 0x12: return 0x05C; // Set Limit Switch Encoder Bound to kAux1GpioCommand
         case 0x13: return 0x05C; // Set Peripherals to kAux1GpioCommand
         default:  return 0x000; // Default fallback to kMode
     }
 }
+
+// checking the mappings, seems to be not one to one
+uint8_t getCanId(uint16_t registerValue) {
+    switch(registerValue) {
+        case 0x000: return 0x00; // kMode to Mode Set
+        case 0x01C: return 0x03; // kCommandQCurrent to Motor PWM & Direction
+        case 0x020: return 0x04; // kCommandPosition to Motor PID Position Target
+        case 0x030: return 0x05; // kPositionKp to P Coefficient Set
+        case 0x031: return 0x06; // kPositionKi to I Coefficient Set
+        case 0x032: return 0x07; // kPositionKd to D Coefficient Set
+        case 0x05E: return 0x09; // kAux1GpioStatus to Limit Switch Alert
+        case 0x050: return 0x0A; // kEncoder0Position to Encoder Pulse Per Joint Revolution Set
+        case 0x001: return 0x0B; // kPosition to Maximum Joint Revolutions Set
+        case 0x132: return 0x0C; // kRequireReindex to Initialize Encoder
+        case 0x025: return 0x0D; // kCommandPositionMaxTorque to Max PWM for PID
+        case 0x060: return 0x0E; // kAux1AnalogIn1 to PCA PWM
+        // case 0x060: return 0x0F; // kAux1AnalogIn1 to Pot Set Low
+        // case 0x060: return 0x10; // kAux1AnalogIn1+ to Pot Set High
+        // case 0x060: return 0x11; // kAux1AnalogIn1 to PCA Servo
+        case 0x05C: return 0x12; // kAux1GpioCommand to Set Limit Switch Encoder Bound
+        // case 0x05C: return 0x13; // kAux1GpioCommand to Set Peripherals
+        default:  return 0xFF; // Default fallback (invalid register)
+    }
+}
+
 
 int main(void)
 { 
@@ -121,8 +146,13 @@ int main(void)
                     // For now, if DLC <=8, do a direct copy:
                     // can_send = can_recieve; 
                     
-                    ConvertFDToCAN(&can_recieve, &can_send);
+                    // ConvertFDToCAN(&can_recieve, &can_send);
                     
+                    // CAN_FD -> CAN, get CAN_FD packets
+                    
+                    uint8_t CAN_FD = getMoteusRegister(&can_send);
+                    
+                   
                     // Send that packet out on the Classical CAN to Jetson
                     SendCANPacket(&can_send);
                 }
